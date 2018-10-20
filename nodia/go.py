@@ -20,7 +20,7 @@ CELL_VOID = '#'
 _real_print = print
 def print(*args):
     out_debug('Please dont use print().')
-    raise Exception
+    raise Exception('Please dont use print().')
 
 def out_print(*args):
     _real_print(*args)
@@ -52,7 +52,7 @@ class Pos(object):
         return self
 
     def __str__(self):
-        return 'Pos(%2d, %2d)' % (self.x, self.y)
+        return 'Pos(x=%2d, y=%2d)' % (self.x, self.y)
 
     def is_valid(self):
         return self.x >= 0 and self.x < GRID_SIZE_X and self.y >= 0 and self.y < GRID_SIZE_Y
@@ -78,7 +78,7 @@ class Grid(object):
     def __init__(self, grid):
         self.grid = grid
 
-    def backtrack(self, cur_pos, coming_from=None, cur_points=0):
+    def backtrack(self, cur_pos, coming_from=None, cur_points=1):
         deltas = (
             Pos(x=-1, y=0),
             Pos(x=1, y=0),
@@ -86,7 +86,7 @@ class Grid(object):
             Pos(x=0, y=1),
         )
 
-        best_score = -1
+        best_score = cur_points
         best_delta = None
 
         for delta in deltas:
@@ -101,8 +101,7 @@ class Grid(object):
 
         if best_delta is not None:
             self.set_arrow(cur_pos, best_delta)
-            return cur_points+best_score
-        return cur_points
+        return best_score
 
     def is_free(self, pos):
         return pos.is_valid() and self.grid[pos.y][pos.x] == CELL_PLATFORM
@@ -112,7 +111,7 @@ class Grid(object):
 
     def get_arrow(self, pos):
         cell = self.grid[pos.y][pos.x]
-        if cell in ['#', '.', 'R', 'D', 'L', 'U', 'r']:
+        if cell in ['#', '.', 'R', 'D', 'L', 'U', 'r', 'd', 'l', 'u']:
             return cell
         d = {  # x, y
             (-1, 0): 'L',
@@ -155,6 +154,7 @@ def main():
 
     grid, _, robots = game_parse()
     g = Grid(grid)
+    robots_pos = [Pos(x=robot[0], y=robot[1]) for robot in robots]
 
     out_debug('Time1: %.3f sec' % (datetime.datetime.now()-start).total_seconds())
     start = datetime.datetime.now()
@@ -164,16 +164,20 @@ def main():
     out_debug('== Robots ==')
     for r in robots:
         out_debug(r)
-    out_debug('==')
+    out_debug('')
 
-    robot_pos = Pos(x=robots[0][0], y=robots[0][1])
-    p = g.backtrack(robot_pos)
+    total_points = 0
+    for pos in robots_pos:
+        out_debug('== Backtracking robot %s' % str(pos))
+        total_points += g.backtrack(pos)
 
+    out_debug()
     out_debug('== Grid ==')
     out_debug(g)
-    out_debug('points: %d' % p)
+    out_debug('points: %d' % total_points)
 
-    out_print(g.print_arrows(robot_pos))
+    arrows = [g.print_arrows(pos) for pos in robots_pos]
+    out_print(' '.join(arrows))
 
     out_debug('Time2: %.3f sec' % (datetime.datetime.now()-start).total_seconds())
 

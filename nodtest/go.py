@@ -75,10 +75,10 @@ def run_test(ident, title, grid):
     stdout = stdout.decode('utf8')
     stderr = stderr.decode('utf8')
 
-    print_header('Stdout')
-    print_data(stdout)
     print_header('Stderr (rc=%d)' % p.returncode)
     print_data(stderr)
+    print_header('Stdout')
+    print_data(stdout)
 
 
 def main():
