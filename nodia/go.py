@@ -1,5 +1,27 @@
 #!/usr/bin/env python3
 
+
+"""
+TODO:
+
+IA
+    remplacer les classes Cell par Dir, et remplacer les Pos([-1; 1]) par Dir
+        state : default, locked, temp
+
+    faire en plusieurs passes:
+        lire la grid et fixer les directions
+        pour chaque robot
+            backtrack + ajouter direction inverse sur la derniere case
+            fixer les directions
+
+    checker le backtracking
+
+TEST
+    script pour tester toutes les grids ?
+
+
+"""
+
 import datetime
 import sys
 
@@ -91,7 +113,7 @@ class Grid(object):
 
         for delta in deltas:
             new_pos = cur_pos + delta
-            if self.is_free(new_pos):
+            if self.is_free_cell_platform(new_pos):
                 self.set_arrow(cur_pos, delta)
                 out_debug('backtrack try %s -> %s (d=%s)' % (cur_pos, new_pos, self.get_arrow(cur_pos)))
                 new_score = self.backtrack(new_pos, delta, cur_points+1)
@@ -103,7 +125,7 @@ class Grid(object):
             self.set_arrow(cur_pos, best_delta)
         return best_score
 
-    def is_free(self, pos):
+    def is_free_cell_platform(self, pos):
         return pos.is_valid() and self.grid[pos.y][pos.x] == CELL_PLATFORM
 
     def set_arrow(self, pos, delta):

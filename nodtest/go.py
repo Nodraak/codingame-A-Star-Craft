@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 import time
+import re
 
 from termcolor import colored
 
@@ -36,13 +37,16 @@ def print_data(s):
     print_c(s, 'yellow')
 
 
-def run_test(ident, title, grid):
+def run_test(ident, title, grid, verbose):
 
     # print header
 
-    print_section('#'*80)
-    print_section('### Test %2d - %s' % (ident, title))
-    print_section('#'*80)
+    if verbose:
+        print_section('#'*80)
+        print_section('### Test %2d - %s' % (ident, title))
+        print_section('#'*80)
+    else:
+        print('Running test %2d %s' % (ident, title))
 
     # find robots and build input data
 
@@ -62,8 +66,9 @@ def run_test(ident, title, grid):
 
     # print debug
 
-    print_header('Input data')
-    print_data(input_data)
+    if verbose:
+        print_header('Input data')
+        print_data(input_data)
 
     # start test
 
@@ -75,25 +80,49 @@ def run_test(ident, title, grid):
     stdout = stdout.decode('utf8')
     stderr = stderr.decode('utf8')
 
-    print_header('Stderr (rc=%d)' % p.returncode)
-    print_data(stderr)
-    print_header('Stdout')
-    print_data(stdout)
+    if verbose:
+        print_header('Stderr (rc=%d)' % p.returncode)
+        print_data(stderr)
+        print_header('Stdout')
+        print_data(stdout)
+
+    # extract score prediction
+    score = int(re.findall(r'points: ([0-9]+)\n', stderr, re.MULTILINE)[0])
+    return score
 
 
-def main():
-    assert len(sys.argv) == 2
-    test_id = int(sys.argv[1])
-
+def test_load_and_run(test_id, verbose=True):
     filepath = TEST_FILES[test_id-1]
-
     f = open(filepath, 'r')
     f_json = json.load(f)
     ident = test_id
     title = f_json['title']['2']
     grid = f_json['testIn'].split('\n')
 
-    run_test(ident, title, grid)
+    return run_test(ident, title, grid, verbose)
 
+
+def main():
+    assert len(sys.argv) == 2
+    if sys.argv[1] != 'all':
+        test_id = int(sys.argv[1])
+        test_load_and_run(test_id)
+    else:
+        scores = []
+        for i in range(1, 30+1):
+            s = test_load_and_run(i, verbose=False)
+            scores.append(s)
+
+        out = ''
+
+        for i, s in enumerate(scores):
+            out += 'Test %2d:\n\t%3d\n' % (i+1, s)
+        out += 'Total: %4d\n' % sum(scores)
+
+        print(out)
+        with open('out.txt', 'w') as f:
+            f.write(out)
+
+        print('Wrote output to out.txt')
 
 main()
