@@ -51,16 +51,60 @@ def out_debug(*args):
     _real_print(*args, file=sys.stderr)
 
 #
-# Game
+# Cell
 #
 
-class Cell(str):
-    pass
+CELL_INITIAL = 'CELL_INITIAL'
+CELL_LOCKED = 'CELL_LOCKED'
+CELL_TMP = 'CELL_TMP'
+
+def cell_is_dir(c):
+    return c in ['L', 'R', 'U', 'D']
+
+def cell_c2p(c):
+    return {
+        'L': Pos(x=-1, y=0),
+        'R': Pos(x=1, y=0),
+        'U': Pos(x=0, y=-1),
+        'D': Pos(x=0, y=1),
+    }[c.upper()]
+
+def cell_p2c(p):
+    return {  # x, y
+        (-1, 0): 'L',
+        (1, 0): 'R',
+        (0, -1): 'U',
+        (0, 1): 'D',
+    }[(p.x, p.y)]
+
+class Cell(object):
+    def __init__(self, c):
+        self.c = c
+        self.state = CELL_INITIAL
+        self.visited = False
+
+    def can_change(self):
+        return self.c == CELL_PLATFORM or self.state != CELL_INITIAL
+
+    def set(self, delta):
+        if not self.can_change():
+            raise Exception('Error, cant change this cell')
+
+        self.c = cell_p2c(delta)
+        self.state = CELL_TMP
+
+    def reverse(self):
+        return {
+            'R': 'L',
+            'L': 'R',
+            'U': 'D',
+            'D': 'U',
+        }[self.c]
 
 class Pos(object):
-    def __init__(self, **kwargs):
-        self.x = kwargs.get('x', None)
-        self.y = kwargs.get('y', None)
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
 
     def __add__(self, other):
         return Pos(
@@ -76,16 +120,12 @@ class Pos(object):
     def __str__(self):
         return 'Pos(x=%2d, y=%2d)' % (self.x, self.y)
 
-    def is_valid(self):
+    def is_in_grid(self):
         return self.x >= 0 and self.x < GRID_SIZE_X and self.y >= 0 and self.y < GRID_SIZE_Y
 
-def arrow_reverse(arrow):
-    return {
-        'R': 'L',
-        'L': 'R',
-        'U': 'D',
-        'D': 'U',
-    }[arrow]
+#
+# Game
+#
 
 def game_parse():
     grid = [[Cell(c) for c in input()] for _ in range(10)]
@@ -101,14 +141,31 @@ def game_parse():
     return grid, robot_count, robots
 
 #
-# Grid backtrack
+# Grid
 #
 
 class Grid(object):
     def __init__(self, grid):
         self.grid = grid
 
-    def backtrack(self, cur_pos, coming_from=None, cur_points=1):
+    def reset_visited(self):
+        for line in self.grid:
+            for c in line:
+                c.visited = False
+
+    def backtrack(self, cur_pos, cur_points=1):
+        self.get_cell(cur_pos.x, cur_pos.y).visited = True
+
+        # if not playable, follow direction
+        if not self.can_set_cell(cur_pos):
+            new_pos = cur_pos + cell_c2p(self.get_cell(cur_pos.x, cur_pos.y).c)
+            if self.should_bactrack(new_pos):
+                return self.backtrack(new_pos, cur_points+1)
+            else:
+                return cur_points
+
+        # now we can actually bactrack
+
         deltas = (
             Pos(x=-1, y=0),
             Pos(x=1, y=0),
@@ -119,76 +176,90 @@ class Grid(object):
         best_score = cur_points
         best_delta = None
 
+        # try all options, saving the best one
         for delta in deltas:
             new_pos = cur_pos + delta
-            if self.is_free_cell_platform(new_pos):
-                self.set_arrow(cur_pos, delta)
-                out_debug('backtrack try %s -> %s (d=%s)' % (cur_pos, new_pos, self.get_arrow(cur_pos)))
-                new_score = self.backtrack(new_pos, delta, cur_points+1)
+            if self.should_bactrack(new_pos):
+                self.set_cell(cur_pos, delta)
+                out_debug('backtrack try %s -> %s (d=%s)' % (cur_pos, new_pos, cell_p2c(delta)))
+                new_score = self.backtrack(new_pos, cur_points+1)
                 if new_score > best_score:
                     best_score = new_score
                     best_delta = delta
 
+        # set the direction to the best option found
         if best_delta is not None:
-            self.set_arrow(cur_pos, best_delta)
+            self.set_cell(cur_pos, best_delta)
+
         return best_score
 
-    def is_free_cell_platform(self, pos):
-        return pos.is_valid() and self.grid[pos.y][pos.x] == CELL_PLATFORM
+    def should_bactrack(self, pos):
+        if not pos.is_in_grid():
+            return False
 
-    def set_arrow(self, pos, delta):
-        self.grid[pos.y][pos.x] = delta
+        cur_cell = self.get_cell(pos.x, pos.y)
 
-    def get_arrow(self, pos):
-        cell = self.grid[pos.y][pos.x]
-        if cell in ['#', '.', 'R', 'D', 'L', 'U', 'r', 'd', 'l', 'u']:
-            return cell
-        d = {  # x, y
-            (-1, 0): 'L',
-            (1, 0): 'R',
-            (0, -1): 'U',
-            (0, 1): 'D',
-        }[(cell.x, cell.y)]
+        if cur_cell.c == CELL_VOID or cur_cell.visited:
+            return False
 
-        return d
+        return True
+
+    def can_set_cell(self, pos):
+        return self.grid[pos.y][pos.x].can_change()
+
+    def set_cell(self, pos, delta):
+        self.grid[pos.y][pos.x].set(delta)
+
+    def get_cell(self, x, y):
+        return self.grid[y][x]
 
     def __str__(self):
         ret = ''
         for y, line in enumerate(self.grid):
             ret += '\n'
             for x, _cell in enumerate(line):
-                ret += self.get_arrow(Pos(x=x, y=y))
+                ret += self.get_cell(x, y).c
 
         return ret[1:]
 
     def print_arrows(self, pos):
-        ret = ''
-        last_arrow = None
-        while self.get_arrow(pos) != CELL_PLATFORM:  # in ['R', 'D', 'L', 'U'] ?
-            arrow = self.get_arrow(pos)
-            if arrow != last_arrow:
-                ret += ' %d %d %c' % (pos.x, pos.y, arrow)
+        self.reset_visited()
 
-            pos += self.grid[pos.y][pos.x]
-            last_arrow = arrow
+        last_cell = self.get_cell(pos.x, pos.y)
+        ret = '%d %d %c' % (pos.x, pos.y, last_cell.c)
 
-        ret += ' %d %d %c' % (pos.x, pos.y, arrow_reverse(arrow))
+        while True:
+            if not pos.is_in_grid():
+                break
 
-        return ret[1:]
+            cell = self.get_cell(pos.x, pos.y)
+            if cell.c == CELL_PLATFORM or cell.c == CELL_VOID or cell.visited:  # not a direction, did we reached the end of the path?
+                break
+
+            cell.visited = True
+
+            if cell.c != last_cell.c:
+                ret += ' %d %d %c' % (pos.x, pos.y, cell.c)
+
+            pos += cell_c2p(cell.c)
+            last_cell.c = cell.c
+
+        if cell.c == CELL_PLATFORM:
+            ret += ' %d %d %c' % (pos.x, pos.y, last_cell.reverse())
+
+        return ret
 
 #
 # Main
 #
 
 def main():
-    start = datetime.datetime.now()
     out_debug('Hello, world!')
 
     grid, _, robots = game_parse()
     g = Grid(grid)
     robots_pos = [Pos(x=robot[0], y=robot[1]) for robot in robots]
 
-    out_debug('Time1: %.3f sec' % (datetime.datetime.now()-start).total_seconds())
     start = datetime.datetime.now()
 
     out_debug('== Grid ==')
@@ -201,6 +272,7 @@ def main():
     total_points = 0
     for pos in robots_pos:
         out_debug('== Backtracking robot %s' % str(pos))
+        g.reset_visited()
         total_points += g.backtrack(pos)
 
     out_debug()
@@ -211,7 +283,8 @@ def main():
     arrows = [g.print_arrows(pos) for pos in robots_pos]
     out_print(' '.join(arrows))
 
-    out_debug('Time2: %.3f sec' % (datetime.datetime.now()-start).total_seconds())
+    out_debug('Time2: %d ms' % ((datetime.datetime.now()-start).total_seconds()*1000))
+    out_debug()
 
 
 main()

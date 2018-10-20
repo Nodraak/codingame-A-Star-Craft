@@ -55,11 +55,14 @@ def run_test(ident, title, grid, verbose):
         for x, cell in enumerate(line):
             if cell in ['R', 'D', 'L', 'U']:  # upper case == robot
                 robots.append([x, y, cell])
+                grid[y][x] = '.'
+            elif cell in ['r', 'd', 'l', 'u']:  # lower case == initial
+                grid[y][x] = grid[y][x].upper()
 
     assert len(robots) != 0
 
     input_data = '\n'.join((
-        '\n'.join(grid),
+        '\n'.join([''.join([c for c in line]) for line in grid]),
         '%d' % len(robots),
         '\n'.join([' '.join([str(c) for c in r]) for r in robots]),
     )) + '\n'
@@ -76,7 +79,7 @@ def run_test(ident, title, grid, verbose):
         ['python3', 'nodia/go.py'],
         stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE,
     )
-    stdout, stderr = p.communicate(input=input_data.encode('utf8'))
+    stdout, stderr = p.communicate(input=input_data.encode('utf8'), timeout=2)
     stdout = stdout.decode('utf8')
     stderr = stderr.decode('utf8')
 
@@ -87,8 +90,13 @@ def run_test(ident, title, grid, verbose):
         print_data(stdout)
 
     # extract score prediction
+
+    if p.returncode != 0:
+        return -1, -1
+
     score = int(re.findall(r'points: ([0-9]+)\n', stderr, re.MULTILINE)[0])
-    return score
+    time = int(re.findall(r'Time2: ([0-9]+)', stderr, re.MULTILINE)[0])
+    return score, time
 
 
 def test_load_and_run(test_id, verbose=True):
@@ -97,7 +105,7 @@ def test_load_and_run(test_id, verbose=True):
     f_json = json.load(f)
     ident = test_id
     title = f_json['title']['2']
-    grid = f_json['testIn'].split('\n')
+    grid = [[c for c in line] for line in f_json['testIn'].split('\n')]
 
     return run_test(ident, title, grid, verbose)
 
@@ -110,14 +118,14 @@ def main():
     else:
         scores = []
         for i in range(1, 30+1):
-            s = test_load_and_run(i, verbose=False)
-            scores.append(s)
+            tup = test_load_and_run(i, verbose=False)
+            scores.append(tup)
 
         out = ''
 
-        for i, s in enumerate(scores):
-            out += 'Test %2d:\n\t%3d\n' % (i+1, s)
-        out += 'Total: %4d\n' % sum(scores)
+        for i, (s, t) in enumerate(scores):
+            out += 'Test %2d:\n\t%3d\n\t\t%4d\n' % (i+1, s, t)
+        out += 'Total: %4d\n' % sum([tup[0] for tup in scores])
 
         print(out)
         with open('out.txt', 'w') as f:
