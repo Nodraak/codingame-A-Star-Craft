@@ -79,6 +79,14 @@ class Pos(object):
     def is_valid(self):
         return self.x >= 0 and self.x < GRID_SIZE_X and self.y >= 0 and self.y < GRID_SIZE_Y
 
+def arrow_reverse(arrow):
+    return {
+        'R': 'L',
+        'L': 'R',
+        'U': 'D',
+        'D': 'U',
+    }[arrow]
+
 def game_parse():
     grid = [[Cell(c) for c in input()] for _ in range(10)]
 
@@ -163,6 +171,8 @@ class Grid(object):
 
             pos += self.grid[pos.y][pos.x]
             last_arrow = arrow
+
+        ret += ' %d %d %c' % (pos.x, pos.y, arrow_reverse(arrow))
 
         return ret[1:]
 
