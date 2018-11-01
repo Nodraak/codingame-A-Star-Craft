@@ -1,0 +1,9 @@
+{
+    "title": {
+        "1": "Croix",
+        "2": "Cross"
+    },
+    "testIn": "##.d.....u.....d.##\n#D.d....U#U....d.D#\n...d..ll###rr..d...\n...u....D#D....u...\n...u.....d.....u...\n...u.....d.....u...\n...#.....d.....#...\nll###rrD.d.Dll###rr\n#R.#.....u.....#.L#\n##.d.....u.....d.##",
+    "isTest": "true",
+    "isValidator": "true"
+}

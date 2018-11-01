@@ -1,0 +1,9 @@
+{
+    "title": {
+        "1": "Wings of Liberty",
+        "2": "Wings of Liberty"
+    },
+    "testIn": "...................\n...................\n.U.......U.......U.\nu#ddddddd#ddddddd#u\nuu#ddddd#u#ddddd#uu\nuuu#ddd#uuu#ddd#uuu\nuuuu#d#uuuuu#d#uuuu\nuuuuu#uuuuuuu#uuuuu\n.....D.......D.....\n...................",
+    "isTest": "true",
+    "isValidator": "true"
+}
