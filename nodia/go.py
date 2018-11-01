@@ -5,20 +5,10 @@
 TODO:
 
 IA
-    remplacer les classes Cell par Dir, et remplacer les Pos([-1; 1]) par Dir
-        state : default, locked, temp
-
-    faire en plusieurs passes:
-        lire la grid et fixer les directions
-        pour chaque robot
-            backtrack + ajouter direction inverse sur la derniere case
-            fixer les directions
-
-    checker le backtracking
-
-TEST
-    script pour tester toutes les grids ?
-
+    visited:
+        take into account the direction
+    arrow:
+        can_change: use the cell's attribute locked/tmp
 
 """
 
@@ -57,9 +47,6 @@ def out_debug(*args):
 CELL_INITIAL = 'CELL_INITIAL'
 CELL_LOCKED = 'CELL_LOCKED'
 CELL_TMP = 'CELL_TMP'
-
-def cell_is_dir(c):
-    return c in ['L', 'R', 'U', 'D']
 
 def cell_c2p(c):
     return {
@@ -180,15 +167,18 @@ class Grid(object):
         for delta in deltas:
             new_pos = cur_pos + delta
             if self.should_bactrack(new_pos):
+                # try backtrack
                 self.set_cell(cur_pos, delta)
                 out_debug('backtrack try %s -> %s (d=%s)' % (cur_pos, new_pos, cell_p2c(delta)))
                 new_score = self.backtrack(new_pos, cur_points+1)
                 if new_score > best_score:
                     best_score = new_score
                     best_delta = delta
+                # reset
+                self.grid[cur_pos.y][cur_pos.x].c = CELL_PLATFORM
 
         # set the direction to the best option found
-        if best_delta is not None:
+        if best_score > cur_points:
             self.set_cell(cur_pos, best_delta)
 
         return best_score
@@ -242,10 +232,9 @@ class Grid(object):
                 ret += ' %d %d %c' % (pos.x, pos.y, cell.c)
 
             pos += cell_c2p(cell.c)
-            last_cell.c = cell.c
+            last_cell = cell
 
-        if cell.c == CELL_PLATFORM:
-            ret += ' %d %d %c' % (pos.x, pos.y, last_cell.reverse())
+        ret += ' %d %d %c' % (pos.x, pos.y, last_cell.reverse())
 
         return ret
 
@@ -274,6 +263,7 @@ def main():
         out_debug('== Backtracking robot %s' % str(pos))
         g.reset_visited()
         total_points += g.backtrack(pos)
+        out_debug(g)
 
     out_debug()
     out_debug('== Grid ==')
